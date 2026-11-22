@@ -1,0 +1,294 @@
+{
+  "pullRequest": {
+    "owner": "udacity",
+    "repo": "cd14715-simple-todo-app",
+    "number": 3
+  },
+  "fileReviews": [
+    {
+      "file": "src/services/subscriptionService.ts",
+      "codeQuality": {
+        "file": "src/services/subscriptionService.ts",
+        "issues": [
+          {
+            "line": 8,
+            "severity": "critical",
+            "category": "security",
+            "description": "API key stored in plaintext in source code",
+            "suggestion": "Move all API credentials to environment variables. Use process.env.STRIPE_API_KEY instead"
+          },
+          {
+            "line": 24,
+            "severity": "high",
+            "category": "security",
+            "description": "Missing input validation for email parameter. Could allow injection attacks",
+            "suggestion": "Validate email format and sanitize input before API calls"
+          },
+          {
+            "line": 42,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "Missing error handling for Stripe API failures. Promise rejection not caught",
+            "suggestion": "Add try/catch or .catch() handler to manage API errors gracefully"
+          },
+          {
+            "line": 65,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Magic string 'PREMIUM_ACTIVE' used directly instead of constant",
+            "suggestion": "Define enum or constant: const SUBSCRIPTION_STATUS = { ACTIVE: 'PREMIUM_ACTIVE', ... }"
+          }
+        ],
+        "overallScore": 58,
+        "summary": "CRITICAL SECURITY ISSUE: Hardcoded API key detected. Code requires significant security review and fixes before production use. Error handling is insufficient."
+      },
+      "testCoverage": {
+        "file": "src/services/subscriptionService.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "src/services/subscriptionService.ts:createSubscription",
+            "priority": "critical",
+            "reasoning": "Payment processing function not tested at all - extremely high risk",
+            "suggestedTest": "Test valid subscription creation, card declined, and API errors"
+          },
+          {
+            "type": "function",
+            "location": "src/services/subscriptionService.ts:cancelSubscription",
+            "priority": "critical",
+            "reasoning": "No tests for subscription cancellation - financial impact",
+            "suggestedTest": "Test cancellation success, already cancelled, and API errors"
+          },
+          {
+            "type": "branch",
+            "location": "src/services/subscriptionService.ts:error handling",
+            "priority": "critical",
+            "reasoning": "No error handling paths tested",
+            "suggestedTest": "Mock Stripe API to return various error codes and verify handling"
+          },
+          {
+            "type": "function",
+            "location": "src/services/subscriptionService.ts:validateSubscription",
+            "priority": "high",
+            "reasoning": "Validation logic not tested - could allow invalid states",
+            "suggestedTest": "Test valid, expired, and invalid subscription objects"
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "NO TEST COVERAGE - Critical issue for payment-related code. Payment processing code must have comprehensive test coverage before production. This is a major security and reliability risk."
+      },
+      "refactorings": {
+        "file": "src/services/subscriptionService.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "src/services/subscriptionService.ts:subscription validation (lines 18-35)",
+            "impact": "high",
+            "description": "Extract validation logic into separate function",
+            "before": "function createSubscription(email, plan) {\n  if (!email || !plan) throw Error();\n  if (plan !== 'monthly' && plan !== 'yearly') throw Error();\n  // ... more validation\n}",
+            "after": "function validateSubscriptionInput(email, plan) {\n  if (!email || !plan) throw Error('Invalid email or plan');\n  const validPlans = ['monthly', 'yearly'];\n  if (!validPlans.includes(plan)) throw Error(`Invalid plan: ${plan}`);\n}\n\nfunction createSubscription(email, plan) {\n  validateSubscriptionInput(email, plan);\n  // ... proceed with creation\n}",
+            "benefits": "More testable, reusable validation, clearer error messages"
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "src/services/subscriptionService.ts:Stripe integration",
+            "impact": "high",
+            "description": "Create Stripe client wrapper to encapsulate API details",
+            "before": "const stripe = require('stripe')(API_KEY);\n// API calls scattered throughout",
+            "after": "class StripeService {\n  constructor(apiKey) { this.stripe = require('stripe')(apiKey); }\n  createCustomer(email) { return this.stripe.customers.create({email}); }\n  createSubscription(customerId, plan) { /* ... */ }\n}",
+            "benefits": "Better abstraction, easier to mock in tests, centralized error handling"
+          }
+        ],
+        "summary": "Major refactoring recommended: extract API client wrapper and validation logic. Current monolithic structure makes testing and maintenance difficult."
+      }
+    },
+    {
+      "file": "src/components/PremiumBanner.tsx",
+      "codeQuality": {
+        "file": "src/components/PremiumBanner.tsx",
+        "issues": [
+          {
+            "line": 12,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Hardcoded pricing values instead of using constants or configuration",
+            "suggestion": "Move pricing to config file or environment variables for easier maintenance"
+          },
+          {
+            "line": 28,
+            "severity": "low",
+            "category": "style",
+            "description": "Missing accessibility attributes (alt text, aria-labels)",
+            "suggestion": "Add alt text to images and aria-labels to interactive elements"
+          }
+        ],
+        "overallScore": 80,
+        "summary": "Component is well-structured. Minor accessibility and configuration improvements needed."
+      },
+      "testCoverage": {
+        "file": "src/components/PremiumBanner.tsx",
+        "hasTests": true,
+        "testFiles": [
+          "src/components/__tests__/PremiumBanner.test.tsx"
+        ],
+        "untestedPaths": [
+          {
+            "type": "branch",
+            "location": "src/components/PremiumBanner.tsx:subscription states",
+            "priority": "high",
+            "reasoning": "Different subscription states (active, expired, none) not tested",
+            "suggestedTest": "Test banner display for each subscription state"
+          },
+          {
+            "type": "edge-case",
+            "location": "src/components/PremiumBanner.tsx:upgrade button click",
+            "priority": "medium",
+            "reasoning": "Button click handler and navigation not tested",
+            "suggestedTest": "Mock router and verify navigation to upgrade page"
+          }
+        ],
+        "coverageEstimate": 78,
+        "summary": "Good coverage at 78%. Main gaps are subscription state rendering and button interaction testing."
+      },
+      "refactorings": {
+        "file": "src/components/PremiumBanner.tsx",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "src/components/PremiumBanner.tsx:pricing display",
+            "impact": "medium",
+            "description": "Extract pricing display logic into separate component",
+            "before": "<div>\n  <span>${plan.monthlyPrice}/month</span>\n  <span>${plan.yearlyPrice}/year</span>\n</div>",
+            "after": "<PricingDisplay plan={plan} /> ",
+            "benefits": "Reusable component, easier to test pricing variations"
+          }
+        ],
+        "summary": "Minor refactoring opportunity to extract pricing component."
+      }
+    },
+    {
+      "file": "src/utils/paymentUtils.ts",
+      "codeQuality": {
+        "file": "src/utils/paymentUtils.ts",
+        "issues": [
+          {
+            "line": 15,
+            "severity": "high",
+            "category": "security",
+            "description": "Credit card data being logged to console - PCI compliance violation",
+            "suggestion": "NEVER log sensitive payment data. Remove all logging of card numbers, CVV, or customer data"
+          },
+          {
+            "line": 32,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Duplicated currency conversion logic used in multiple places",
+            "suggestion": "Create shared utility function for currency conversion"
+          }
+        ],
+        "overallScore": 65,
+        "summary": "SECURITY CONCERN: Credit card data being logged. This is a critical PCI compliance issue. Immediate remediation required."
+      },
+      "testCoverage": {
+        "file": "src/utils/paymentUtils.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "src/utils/paymentUtils.ts:formatCurrency",
+            "priority": "high",
+            "reasoning": "Currency formatting not tested - could cause display errors",
+            "suggestedTest": "Test various locales and edge cases: negative numbers, large numbers, zero"
+          },
+          {
+            "type": "function",
+            "location": "src/utils/paymentUtils.ts:validateCardNumber",
+            "priority": "critical",
+            "reasoning": "Card validation logic not tested - security risk",
+            "suggestedTest": "Test valid Visa/Mastercard/Amex, invalid checksums, edge cases"
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "NO TEST COVERAGE - Utility functions for payment handling must have tests. This is critical for financial transactions."
+      },
+      "refactorings": {
+        "file": "src/utils/paymentUtils.ts",
+        "suggestions": [
+          {
+            "type": "simplify",
+            "location": "src/utils/paymentUtils.ts:currency conversion",
+            "impact": "medium",
+            "description": "Create single utility function for all currency operations",
+            "before": "// Duplicated in multiple places:\nconst inCents = price * 100;\nconst inDollars = price / 100;",
+            "after": "const toCents = (dollars) => Math.round(dollars * 100);\nconst toDollars = (cents) => cents / 100;",
+            "benefits": "DRY principle, consistent conversion across codebase"
+          }
+        ],
+        "summary": "Refactoring opportunity to consolidate currency conversion logic."
+      }
+    }
+  ],
+  "summary": {
+    "totalFiles": 3,
+    "overallScore": 68,
+    "criticalIssues": 3,
+    "highPriorityTests": 7,
+    "refactoringOpportunities": 5
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "security",
+      "description": "🚨 CRITICAL SECURITY ISSUES: (1) Hardcoded API key in subscriptionService.ts must be moved to environment variables immediately. (2) Credit card data being logged in paymentUtils.ts - PCI compliance violation. (3) Missing input validation on email parameter. These issues MUST be fixed before any production deployment.",
+      "files": [
+        "src/services/subscriptionService.ts",
+        "src/utils/paymentUtils.ts"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "testing",
+      "description": "Payment-related code has ZERO test coverage. This is unacceptable for production code handling financial transactions. Create comprehensive tests for: subscription creation/cancellation, payment processing, error scenarios, and all validation logic.",
+      "files": [
+        "src/services/subscriptionService.ts",
+        "src/utils/paymentUtils.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "error-handling",
+      "description": "Add proper error handling for all Stripe API calls. Currently missing try/catch blocks and error callbacks. Implement graceful error handling with user-friendly messages.",
+      "files": [
+        "src/services/subscriptionService.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "maintainability",
+      "description": "Create Stripe client wrapper class to encapsulate API details and centralize error handling. Extract validation logic into separate, testable functions.",
+      "files": [
+        "src/services/subscriptionService.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "accessibility",
+      "description": "Add accessibility attributes: alt text for images, aria-labels for interactive elements, proper heading hierarchy in PremiumBanner component.",
+      "files": [
+        "src/components/PremiumBanner.tsx"
+      ]
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-11-22T07:20:00.000Z",
+    "duration": 5234,
+    "agentVersions": {
+      "code-quality-analyzer": "1.0",
+      "test-coverage-analyzer": "1.0",
+      "refactoring-suggester": "1.0"
+    }
+  }
+}
