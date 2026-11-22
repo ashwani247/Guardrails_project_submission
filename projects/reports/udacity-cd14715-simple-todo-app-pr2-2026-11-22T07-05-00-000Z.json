@@ -1,0 +1,227 @@
+{
+  "pullRequest": {
+    "owner": "udacity",
+    "repo": "cd14715-simple-todo-app",
+    "number": 2
+  },
+  "fileReviews": [
+    {
+      "file": "src/services/searchService.ts",
+      "codeQuality": {
+        "file": "src/services/searchService.ts",
+        "issues": [
+          {
+            "line": 12,
+            "severity": "high",
+            "category": "performance",
+            "description": "Using Array.filter() with complex regex on every render could be slow with large datasets",
+            "suggestion": "Consider memoizing search results or implementing debouncing for search input"
+          },
+          {
+            "line": 28,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Regular expression pattern hardcoded with case sensitivity. Consider making this configurable",
+            "suggestion": "Extract pattern to constant and add case sensitivity parameter"
+          },
+          {
+            "line": 45,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "Missing null check for search term. Empty string could cause unexpected behavior",
+            "suggestion": "Add validation: if (!searchTerm || searchTerm.trim().length === 0) return [];"
+          }
+        ],
+        "overallScore": 72,
+        "summary": "Search implementation works but has performance concerns and edge case handling issues. Performance optimization recommended for production use."
+      },
+      "testCoverage": {
+        "file": "src/services/searchService.ts",
+        "hasTests": true,
+        "testFiles": [
+          "src/services/__tests__/searchService.test.ts"
+        ],
+        "untestedPaths": [
+          {
+            "type": "edge-case",
+            "location": "src/services/searchService.ts:search (empty string)",
+            "priority": "critical",
+            "reasoning": "Empty search string behavior not tested - could return all todos unexpectedly",
+            "suggestedTest": "expect(search(todos, '')).toEqual(todos)"
+          },
+          {
+            "type": "edge-case",
+            "location": "src/services/searchService.ts:search (special characters)",
+            "priority": "high",
+            "reasoning": "Regex special chars in search term not escaped",
+            "suggestedTest": "expect(() => search(todos, '.*')).not.toThrow()"
+          },
+          {
+            "type": "branch",
+            "location": "src/services/searchService.ts:case sensitivity (line 28)",
+            "priority": "high",
+            "reasoning": "Case insensitive search path not tested",
+            "suggestedTest": "expect(search(todos, 'TODO', {caseSensitive: false})).toHaveLength(2)"
+          },
+          {
+            "type": "edge-case",
+            "location": "src/services/searchService.ts:null/undefined input",
+            "priority": "high",
+            "reasoning": "No test for null todos array or null search term",
+            "suggestedTest": "expect(search(null, 'test')).toThrow()"
+          }
+        ],
+        "coverageEstimate": 65,
+        "summary": "Coverage is below target at 65%. Critical edge cases missing: empty strings, special characters, and null handling. These should be tested before merging."
+      },
+      "refactorings": {
+        "file": "src/services/searchService.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "src/services/searchService.ts:search (lines 10-50)",
+            "impact": "high",
+            "description": "Extract regex compilation and matching logic into separate functions",
+            "before": "function search(todos, term) {\n  const regex = new RegExp(term, 'gi');\n  return todos.filter(t => regex.test(t.title) || regex.test(t.description));\n}",
+            "after": "function createSearchRegex(term, options = {}) {\n  const flags = options.caseSensitive ? 'g' : 'gi';\n  return new RegExp(escapeRegex(term), flags);\n}\n\nfunction matchesTodo(todo, regex) {\n  return regex.test(todo.title) || regex.test(todo.description);\n}\n\nfunction search(todos, term, options) {\n  const regex = createSearchRegex(term, options);\n  return todos.filter(t => matchesTodo(t, regex));\n}",
+            "benefits": "More testable, easier to reuse regex logic, clearer separation of concerns"
+          },
+          {
+            "type": "simplify",
+            "location": "src/services/searchService.ts:filtering logic",
+            "impact": "medium",
+            "description": "Use some() instead of double test() calls",
+            "before": "return todos.filter(t => regex.test(t.title) || regex.test(t.description));",
+            "after": "return todos.filter(t => [t.title, t.description].some(field => regex.test(field)));",
+            "benefits": "More functional, easier to extend to additional fields"
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "src/services/searchService.ts:regex usage",
+            "impact": "high",
+            "description": "Add memoization for regex compilation to avoid recompiling on each search",
+            "before": "const regex = new RegExp(term, 'gi');\nreturn todos.filter(...);",
+            "after": "const memoizedRegex = useMemo(() => new RegExp(term, 'gi'), [term]);\nreturn todos.filter(...);",
+            "benefits": "Significantly improved performance for repeated searches with same term"
+          }
+        ],
+        "summary": "Three refactoring opportunities identified to improve maintainability and performance. Priority should be on memoization and input validation."
+      }
+    },
+    {
+      "file": "src/components/SearchBar.tsx",
+      "codeQuality": {
+        "file": "src/components/SearchBar.tsx",
+        "issues": [
+          {
+            "line": 18,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Missing PropTypes validation for props",
+            "suggestion": "Add PropTypes or convert to TypeScript interface with strict typing"
+          },
+          {
+            "line": 35,
+            "severity": "low",
+            "category": "style",
+            "description": "Using inline styles instead of CSS modules or className",
+            "suggestion": "Move styles to separate CSS/styled-components for better maintainability"
+          }
+        ],
+        "overallScore": 85,
+        "summary": "Component is well-structured and readable. Minor improvements around prop validation and styling approach."
+      },
+      "testCoverage": {
+        "file": "src/components/SearchBar.tsx",
+        "hasTests": true,
+        "testFiles": [
+          "src/components/__tests__/SearchBar.test.tsx"
+        ],
+        "untestedPaths": [
+          {
+            "type": "branch",
+            "location": "src/components/SearchBar.tsx:handleChange (debounce)",
+            "priority": "medium",
+            "reasoning": "Debounce timing and callback not tested",
+            "suggestedTest": "jest.useFakeTimers(); handleChange('test'); jest.advanceTimersByTime(300); expect(mockCallback).toHaveBeenCalledWith('test')"
+          },
+          {
+            "type": "edge-case",
+            "location": "src/components/SearchBar.tsx:disabled state",
+            "priority": "low",
+            "reasoning": "Disabled state rendering not tested",
+            "suggestedTest": "render(<SearchBar disabled />); expect(input).toBeDisabled()"
+          }
+        ],
+        "coverageEstimate": 92,
+        "summary": "Excellent test coverage at 92%. Only minor edge cases in debounce timing and disabled state remain untested."
+      },
+      "refactorings": {
+        "file": "src/components/SearchBar.tsx",
+        "suggestions": [
+          {
+            "type": "modernize",
+            "location": "src/components/SearchBar.tsx:props handling",
+            "impact": "low",
+            "description": "Use destructuring in function parameters for cleaner code",
+            "before": "function SearchBar(props) {\n  const { placeholder, onSearch } = props;",
+            "after": "function SearchBar({ placeholder, onSearch, disabled = false }) {",
+            "benefits": "More concise and modern React pattern"
+          }
+        ],
+        "summary": "Component follows good React patterns. Only minor modernization suggestion."
+      }
+    }
+  ],
+  "summary": {
+    "totalFiles": 2,
+    "overallScore": 78,
+    "criticalIssues": 1,
+    "highPriorityTests": 4,
+    "refactoringOpportunities": 4
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "testing",
+      "description": "Add comprehensive edge case tests for search functionality: empty strings, special regex characters, null inputs, and case sensitivity variations. Current coverage at 65% is too low for production.",
+      "files": [
+        "src/services/__tests__/searchService.test.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "performance",
+      "description": "Implement memoization for regex compilation and debouncing for search input to prevent performance degradation with large todo lists. Consider useMemo() in React components.",
+      "files": [
+        "src/services/searchService.ts",
+        "src/components/SearchBar.tsx"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "bug-risk",
+      "description": "Add validation for search term: check for empty/null strings and escape special regex characters. Missing validation could cause unexpected behavior or regex errors.",
+      "files": [
+        "src/services/searchService.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "maintainability",
+      "description": "Extract regex compilation and matching logic into separate, testable functions. This will improve code clarity and test coverage.",
+      "files": [
+        "src/services/searchService.ts"
+      ]
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-11-22T07:05:00.000Z",
+    "duration": 4521,
+    "agentVersions": {
+      "code-quality-analyzer": "1.0",
+      "test-coverage-analyzer": "1.0",
+      "refactoring-suggester": "1.0"
+    }
+  }
+}
