@@ -1,0 +1,291 @@
+{
+  "pullRequest": {
+    "owner": "udacity",
+    "repo": "cd14715-simple-todo-app",
+    "number": 2
+  },
+  "fileReviews": [
+    {
+      "file": "src/components/TodoList.tsx",
+      "codeQuality": {
+        "file": "src/components/TodoList.tsx",
+        "issues": [
+          {
+            "line": 24,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "Missing key prop in list items - using array index as key causes issues with reordering and state management",
+            "suggestion": "Use unique todo id instead: key={todo.id} instead of key={index}"
+          },
+          {
+            "line": 15,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Component logic is tightly coupled with presentation - consider separating business logic",
+            "suggestion": "Extract todo filtering and sorting logic into a custom hook"
+          },
+          {
+            "line": 42,
+            "severity": "low",
+            "category": "style",
+            "description": "Inconsistent spacing in JSX elements",
+            "suggestion": "Format JSX consistently with 2-space indentation"
+          }
+        ],
+        "overallScore": 72,
+        "summary": "Component has functional structure but lacks separation of concerns and contains potential state management issues. The missing key prop is a critical bug risk that could cause unexpected behavior."
+      },
+      "testCoverage": {
+        "file": "src/components/TodoList.tsx",
+        "hasTests": true,
+        "testFiles": [
+          "src/components/__tests__/TodoList.test.tsx"
+        ],
+        "untestedPaths": [
+          {
+            "type": "branch",
+            "location": "src/components/TodoList.tsx:handleDelete",
+            "priority": "high",
+            "reasoning": "Delete operation with async confirmation not fully tested - edge cases like network errors missing",
+            "suggestedTest": "Test delete failure scenarios and user confirmation cancellation"
+          },
+          {
+            "type": "edge-case",
+            "location": "src/components/TodoList.tsx:renderEmpty",
+            "priority": "medium",
+            "reasoning": "Empty list state rendering path only has one basic test",
+            "suggestedTest": "Test empty list with various filter states and transitions"
+          }
+        ],
+        "coverageEstimate": 68,
+        "summary": "Basic coverage exists but lacks depth in error handling and edge case scenarios. Delete and filter functionality need more comprehensive testing."
+      },
+      "refactorings": {
+        "file": "src/components/TodoList.tsx",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "src/components/TodoList.tsx:lines 15-35",
+            "impact": "high",
+            "description": "Extract todo filtering and sorting logic into separate utility function",
+            "before": "const filteredTodos = todos.filter(t => {\n  if (filter === 'active') return !t.completed;\n  if (filter === 'completed') return t.completed;\n  return true;\n}).sort((a, b) => a.priority - b.priority);",
+            "after": "const filteredTodos = getFilteredAndSortedTodos(todos, filter);",
+            "benefits": "Improves testability, reusability, and makes component logic clearer"
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "src/components/TodoList.tsx:lines 50-60",
+            "impact": "medium",
+            "description": "Replace inline event handlers with named functions to improve readability and debugging",
+            "before": "onClick={() => handleDelete(todo.id)}",
+            "after": "onClick={() => handleTodoDelete(todo.id)}",
+            "benefits": "Better stack traces and clearer intent in event handling"
+          }
+        ],
+        "summary": "Component has opportunities for improved structure through extraction of business logic and better event handler naming conventions."
+      }
+    },
+    {
+      "file": "src/services/todoApi.ts",
+      "codeQuality": {
+        "file": "src/services/todoApi.ts",
+        "issues": [
+          {
+            "line": 8,
+            "severity": "high",
+            "category": "security",
+            "description": "API endpoint hardcoded without environment variable - exposes production endpoint in source code",
+            "suggestion": "Use environment variables: const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:3001'"
+          },
+          {
+            "line": 22,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "No error boundary or timeout handling for API calls",
+            "suggestion": "Implement request timeout and structured error responses with proper error codes"
+          },
+          {
+            "line": 35,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Missing request/response validation - assumes API response structure",
+            "suggestion": "Add schema validation using libraries like zod or yup for type safety"
+          }
+        ],
+        "overallScore": 65,
+        "summary": "Service layer lacks security hardening and error handling. The hardcoded endpoint is a security concern that must be addressed before production deployment."
+      },
+      "testCoverage": {
+        "file": "src/services/todoApi.ts",
+        "hasTests": true,
+        "testFiles": [
+          "src/services/__tests__/todoApi.test.ts"
+        ],
+        "untestedPaths": [
+          {
+            "type": "branch",
+            "location": "src/services/todoApi.ts:updateTodo",
+            "priority": "high",
+            "reasoning": "Update operation lacks tests for conflict scenarios (409 responses) and partial updates",
+            "suggestedTest": "Mock 409 conflict responses and test optimistic update rollback"
+          },
+          {
+            "type": "edge-case",
+            "location": "src/services/todoApi.ts:getAllTodos",
+            "priority": "high",
+            "reasoning": "No tests for network timeout or slow connection scenarios",
+            "suggestedTest": "Test timeout behavior and implement retry mechanism tests"
+          },
+          {
+            "type": "function",
+            "location": "src/services/todoApi.ts:handleError",
+            "priority": "medium",
+            "reasoning": "Error handling utility function not tested independently",
+            "suggestedTest": "Test various error codes (400, 401, 500) and response formats"
+          }
+        ],
+        "coverageEstimate": 61,
+        "summary": "Coverage is below target. Critical gaps in error handling, network resilience, and edge case scenarios need immediate attention."
+      },
+      "refactorings": {
+        "file": "src/services/todoApi.ts",
+        "suggestions": [
+          {
+            "type": "modernize",
+            "location": "src/services/todoApi.ts:lines 1-15",
+            "impact": "medium",
+            "description": "Replace fetch with axios for better error handling and request/response interceptors",
+            "before": "fetch(url).then(r => r.json()).catch(e => console.error(e))",
+            "after": "axiosInstance.get(url).catch(error => handleApiError(error))",
+            "benefits": "Better error handling, automatic JSON parsing, interceptor support for auth tokens"
+          },
+          {
+            "type": "simplify",
+            "location": "src/services/todoApi.ts:lines 40-55",
+            "impact": "low",
+            "description": "Reduce repeated fetch wrapper code by creating generic request helper",
+            "before": "const response = await fetch(url, options);\nif (!response.ok) throw new Error('API Error');\nreturn response.json();",
+            "after": "return makeRequest('GET', url);",
+            "benefits": "DRY principle, easier maintenance, consistent error handling"
+          }
+        ],
+        "summary": "Service layer would benefit from modernization with axios and extraction of common request patterns."
+      }
+    },
+    {
+      "file": "src/hooks/useTodo.ts",
+      "codeQuality": {
+        "file": "src/hooks/useTodo.ts",
+        "issues": [
+          {
+            "line": 12,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "Missing dependency in useEffect - filter parameter changes are not tracked",
+            "suggestion": "Add filter to dependency array: useEffect(() => {...}, [filter, todos])"
+          },
+          {
+            "line": 28,
+            "severity": "low",
+            "category": "style",
+            "description": "Callback functions not memoized - causes unnecessary renders in child components",
+            "suggestion": "Wrap handlers with useCallback: const handleAdd = useCallback((todo) => {...}, [])"
+          }
+        ],
+        "overallScore": 78,
+        "summary": "Custom hook implements core todo logic well but has a critical dependency issue in useEffect that could cause stale state. Memoization would improve performance."
+      },
+      "testCoverage": {
+        "file": "src/hooks/useTodo.ts",
+        "hasTests": true,
+        "testFiles": [
+          "src/hooks/__tests__/useTodo.test.ts"
+        ],
+        "untestedPaths": [
+          {
+            "type": "branch",
+            "location": "src/hooks/useTodo.ts:addTodo",
+            "priority": "high",
+            "reasoning": "Adding duplicate todos and validation logic not tested",
+            "suggestedTest": "Test duplicate prevention, validation errors, and boundary conditions"
+          }
+        ],
+        "coverageEstimate": 75,
+        "summary": "Good baseline coverage with main paths tested. Additional tests needed for validation and edge cases in todo creation."
+      },
+      "refactorings": {
+        "file": "src/hooks/useTodo.ts",
+        "suggestions": [
+          {
+            "type": "pattern-improvement",
+            "location": "src/hooks/useTodo.ts:lines 25-40",
+            "impact": "medium",
+            "description": "Consider using useReducer instead of multiple useState for complex state transitions",
+            "before": "const [todos, setTodos] = useState([]);\nconst [loading, setLoading] = useState(false);\nconst [error, setError] = useState(null);",
+            "after": "const [state, dispatch] = useReducer(todoReducer, initialState);",
+            "benefits": "Cleaner state management, easier to reason about state transitions, better for complex interactions"
+          }
+        ],
+        "summary": "Hook could benefit from useReducer pattern for handling multiple related state updates."
+      }
+    }
+  ],
+  "summary": {
+    "totalFiles": 3,
+    "overallScore": 72,
+    "criticalIssues": 1,
+    "highPriorityTests": 4,
+    "refactoringOpportunities": 6
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "security",
+      "description": "Remove hardcoded API endpoint from source code and use environment variables for all configuration values",
+      "files": [
+        "src/services/todoApi.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "bug-risk",
+      "description": "Fix missing key props in TodoList component - replace array index with unique todo id to prevent state inconsistencies during list reordering",
+      "files": [
+        "src/components/TodoList.tsx"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "maintainability",
+      "description": "Increase test coverage for error handling and edge cases in api service (target 80%+) - focus on network failures, timeouts, and conflict scenarios",
+      "files": [
+        "src/services/todoApi.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "best-practice",
+      "description": "Fix useEffect dependency array in useTodo hook to include all external values that change over time",
+      "files": [
+        "src/hooks/useTodo.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "maintainability",
+      "description": "Extract business logic from TodoList component into custom hooks and utility functions to improve testability and reusability",
+      "files": [
+        "src/components/TodoList.tsx"
+      ]
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-11-22T17:14:43.912Z",
+    "duration": 27687,
+    "agentVersions": {
+      "code-quality-analyzer": "1.0",
+      "test-coverage-analyzer": "1.0",
+      "refactoring-suggester": "1.0"
+    }
+  }
+}
