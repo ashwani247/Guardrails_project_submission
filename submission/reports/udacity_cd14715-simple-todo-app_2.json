@@ -1,0 +1,495 @@
+{
+  "pullRequest": {
+    "owner": "udacity",
+    "repo": "cd14715-simple-todo-app",
+    "number": 2
+  },
+  "fileReviews": [
+    {
+      "file": "src/orchestrator.ts",
+      "codeQuality": {
+        "file": "src/orchestrator.ts",
+        "issues": [
+          {
+            "line": 48,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Magic string 'claude-sonnet-4-5-20250929' is hardcoded as default model. This model identifier should be centralized for easier maintenance and updates.",
+            "suggestion": "Move the default model to a constants file or configuration object"
+          },
+          {
+            "line": 75,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "Direct type assertion 'as Record<string, unknown>' bypasses TypeScript type checking for ReviewReportJSONSchema. This can cause runtime errors if the schema structure doesn't match what the API expects.",
+            "suggestion": "Remove the type assertion and ensure ReviewReportJSONSchema is properly typed. Add validation to confirm the schema structure before passing to the API"
+          },
+          {
+            "line": 86,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Magic string 'Task' appears as a hardcoded tool name. This creates tight coupling and reduces maintainability if tool names change.",
+            "suggestion": "Define a constant 'const TASK_TOOL_NAME = \"Task\"' at the module level and reference it throughout the code"
+          },
+          {
+            "line": 103,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Generic error handling converts all errors to Error strings without preserving error types or stack traces. The pattern 'error instanceof Error ? error.message : String(error)' loses valuable debugging information.",
+            "suggestion": "Preserve stack traces in logging: include both message and stack trace in error logging utility"
+          },
+          {
+            "line": 109,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "The for-await loop returns within the loop body without proper cleanup or connection closure. If an exception occurs, resources may not be properly released.",
+            "suggestion": "Consider using try-finally blocks to ensure cleanup and resource release if needed"
+          }
+        ],
+        "overallScore": 72,
+        "summary": "The orchestrator demonstrates solid overall structure with proper error handling and logging, but has type-safety concerns and resource management issues. Key problems include type assertion bypassing TypeScript checks (line 75), potential resource cleanup issues in async iteration (line 109), and magic strings scattered without centralization. The code is functional but requires improvements in type safety and constants management before production use."
+      },
+      "testCoverage": {
+        "file": "src/orchestrator.ts",
+        "hasTests": true,
+        "testFiles": [
+          "tests/orchestrator.test.ts"
+        ],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "Orchestrator.constructor",
+            "priority": "high",
+            "reasoning": "Constructor initialization is critical for all subsequent tests. Must verify default options, custom options merging, logger setup, and agent initialization.",
+            "suggestedTest": "Test default options initialization, custom options merging, and agent initialization"
+          },
+          {
+            "type": "function",
+            "location": "Orchestrator.reviewPullRequest - happy path",
+            "priority": "critical",
+            "reasoning": "Main public method that orchestrates the entire code review flow. Must test successful review execution with valid PR parameters.",
+            "suggestedTest": "Test successful pull request analysis returning properly structured review report"
+          },
+          {
+            "type": "branch",
+            "location": "Orchestrator.reviewPullRequest - GitHub API errors",
+            "priority": "critical",
+            "reasoning": "Must handle GitHub API failures (network errors, 404 PR not found, authentication errors, rate limiting) with appropriate error recovery.",
+            "suggestedTest": "Mock GitHub MCP to return 404 error and verify proper error handling"
+          },
+          {
+            "type": "branch",
+            "location": "Orchestrator.reviewPullRequest - Zod schema validation failure",
+            "priority": "critical",
+            "reasoning": "Must validate structured output against Zod schemas and handle validation errors when subagents return invalid responses.",
+            "suggestedTest": "Mock query to return invalid structured output and verify validation error handling"
+          },
+          {
+            "type": "edge-case",
+            "location": "Orchestrator.reviewPullRequest - concurrent review requests",
+            "priority": "medium",
+            "reasoning": "Must handle multiple concurrent review requests without state corruption or race conditions between orchestrator instances.",
+            "suggestedTest": "Create multiple orchestrator instances and execute concurrent reviews to verify no cross-contamination"
+          }
+        ],
+        "coverageEstimate": 15,
+        "summary": "Test coverage is minimal at 15%. Test file exists but contains skeleton/TODO comments. Critical gaps include constructor initialization, main reviewPullRequest method with happy path and comprehensive error handling (GitHub API errors, MCP connection failures, parameter validation, schema validation), and edge cases like concurrent requests. Priority focuses on critical business logic and high-priority API surface testing."
+      },
+      "refactorings": {
+        "file": "src/orchestrator.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "reviewPullRequest method (entire async method)",
+            "impact": "high",
+            "description": "Break down the large reviewPullRequest method into smaller, single-responsibility functions to improve readability and testability.",
+            "before": "async reviewPullRequest(prData: PullRequestData): Promise<AnalysisResults> {\n  // 100+ lines of control flow, message handling, and state management\n}",
+            "after": "async reviewPullRequest(prData: PullRequestData): Promise<AnalysisResults> {\n  this.logger.info('Starting pull request review', { prId: prData.id });\n  const analysis = await this.executeAgentAnalysis(prData);\n  return this.aggregateResults(analysis);\n}",
+            "benefits": "Reduces cyclomatic complexity, improves readability, makes it easier to test individual stages, enables code reuse, clarifies intent of each step"
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "Error handling throughout the class",
+            "impact": "high",
+            "description": "Create custom error classes for different error scenarios instead of throwing generic errors.",
+            "before": "try {\n  // agent communication\n} catch (error) {\n  console.error('Agent failed:', error);\n  throw error;\n}",
+            "after": "try {\n  // agent communication\n} catch (error) {\n  if (error instanceof AgentCommunicationError) {\n    this.logger.error('Agent communication failed', { cause: error.originalError });\n    throw new OrchestratorError('Failed to analyze with agents', { cause: error });\n  }\n  throw error;\n}",
+            "benefits": "Better error categorization for debugging, enables specific error handling strategies, improves error recovery logic"
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "Type safety in message handling",
+            "impact": "high",
+            "description": "Create discriminated union types for different message event types to improve type safety.",
+            "before": "interface StreamEvent {\n  type: string;\n  data?: any;\n}",
+            "after": "type StreamEvent = \n  | { type: 'content_block_start'; content_block: ContentBlock }\n  | { type: 'content_block_delta'; delta: ContentDelta }\n  | { type: 'message_stop'; message: Message };",
+            "benefits": "Compile-time type safety, prevents runtime errors from missing properties, enables better IDE support"
+          }
+        ],
+        "summary": "10 refactoring opportunities identified focusing on separation of concerns, error handling, and testability. High-impact improvements include breaking down the large reviewPullRequest method, implementing custom error classes, and improving type safety with discriminated unions. The code would benefit most from immediate attention to method extraction and dependency injection patterns."
+      }
+    },
+    {
+      "file": "src/main.ts",
+      "codeQuality": {
+        "file": "src/main.ts",
+        "issues": [
+          {
+            "line": 11,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Magic number 2 used for array slicing without explanation. The purpose is to skip 'node' and script filename from argv.",
+            "suggestion": "Add a named constant like const ARGS_SKIP = 2 to clarify intent and make it maintainable"
+          },
+          {
+            "line": 15,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Emojis used in console output may not render properly in CI/CD environments, non-UTF8 terminals, or log aggregation systems.",
+            "suggestion": "Either conditionally render emojis based on TTY detection, or move emoji usage to dedicated logging levels"
+          },
+          {
+            "line": 24,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Using parseInt() with radix 10 is good, but no maximum value validation. A maliciously large number could pass through.",
+            "suggestion": "Add a maximum PR number check to validate reasonable input bounds"
+          },
+          {
+            "line": 90,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "No validation of report object structure before accessing nested properties. If orchestrator returns a malformed object, accessing report.fileReviews could throw.",
+            "suggestion": "Add validation after line 90 to check report structure before accessing properties"
+          },
+          {
+            "line": 101,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Report file generation code is repetitive. Three nearly identical blocks for MD, HTML, and JSON output violate DRY principle.",
+            "suggestion": "Extract file writing logic into a helper function: writeReport(format, content, basePath)"
+          },
+          {
+            "line": 125,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Report summary properties assumed to exist without null-coalescing. If report.summary is missing any property, output shows 'undefined'.",
+            "suggestion": "Add default values using null coalescing: report.summary?.overallScore ?? 'N/A'"
+          }
+        ],
+        "overallScore": 72,
+        "summary": "The main.ts file demonstrates good structure with clear validation stages and error handling. However, there are maintainability concerns including code repetition in file generation (3 similar blocks), inconsistent property access patterns, and magic numbers. Key recommendations: extract file writing to DRY helper function, add null safety checks for report object properties, use environment variables for hardcoded paths, and consolidate error logging patterns."
+      },
+      "testCoverage": {
+        "file": "src/main.ts",
+        "hasTests": true,
+        "testFiles": [
+          "tests/orchestrator.test.ts"
+        ],
+        "untestedPaths": [
+          {
+            "type": "branch",
+            "location": "main() - Command line argument parsing: missing owner/repo/prNumber",
+            "priority": "critical",
+            "reasoning": "No test validates behavior when required arguments are missing. This is critical for CLI reliability.",
+            "suggestedTest": "Test missing owner, repo, and prNumber arguments individually"
+          },
+          {
+            "type": "edge-case",
+            "location": "main() - Command line argument parsing: invalid prNumber format",
+            "priority": "high",
+            "reasoning": "No test validates that prNumber must be numeric. Invalid formats should be caught and reported.",
+            "suggestedTest": "Test that non-numeric prNumber is rejected with clear error message"
+          },
+          {
+            "type": "branch",
+            "location": "main() - Environment variable validation: missing ANTHROPIC_MODEL",
+            "priority": "critical",
+            "reasoning": "No test validates fallback when ANTHROPIC_MODEL environment variable is not set.",
+            "suggestedTest": "Delete ANTHROPIC_MODEL env var and verify proper error handling"
+          },
+          {
+            "type": "branch",
+            "location": "main() - Report generation and file I/O: write failure",
+            "priority": "high",
+            "reasoning": "No test validates error handling when report cannot be written to disk (permissions, disk full, path issues).",
+            "suggestedTest": "Mock fs.writeFile to throw EACCES and verify error handling"
+          },
+          {
+            "type": "edge-case",
+            "location": "main() - Exit codes: successful execution (exit 0)",
+            "priority": "high",
+            "reasoning": "No test verifies that main() calls process.exit(0) on successful completion.",
+            "suggestedTest": "Mock process.exit and verify exit code 0 on success"
+          },
+          {
+            "type": "edge-case",
+            "location": "main() - Exit codes: error execution (exit 1)",
+            "priority": "high",
+            "reasoning": "No test verifies that main() calls process.exit(1) on error. Exit code indicates failure to callers.",
+            "suggestedTest": "Mock process.exit and verify exit code 1 on error"
+          }
+        ],
+        "coverageEstimate": 15,
+        "summary": "15% estimated coverage. Critical gaps exist in CLI argument validation, environment variable checking, error handling, and exit code management. All 6 required CLI arguments and their error cases need tests. File I/O error paths require coverage. 16 actionable test cases identified, with multiple rated critical or high priority."
+      },
+      "refactorings": {
+        "file": "src/main.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "main() - Validation logic (lines ~20-85)",
+            "impact": "high",
+            "description": "Extract scattered validation checks into dedicated validation functions.",
+            "before": "async function main() {\n  if (!owner || !repo || !prStr) {\n    console.error('Error');\n    process.exit(1);\n  }\n  // multiple validation blocks\n}",
+            "after": "function validateInputs(owner: string, repo: string, prNumber: number): void {\n  if (!owner) throw new Error('--owner is required');\n  if (!repo) throw new Error('--repo is required');\n  if (prNumber <= 0) throw new Error('PR number must be positive');\n}\n\nasync function main() {\n  try {\n    validateInputs(owner, repo, prNumber);\n    // proceed\n  } catch (error) {\n    handleError(error);\n  }\n}",
+            "benefits": "Improves testability by separating validation logic. Makes main() cleaner and easier to understand."
+          },
+          {
+            "type": "extract-function",
+            "location": "main() - Report generation and file I/O (lines ~90-130)",
+            "impact": "high",
+            "description": "File I/O operations are mixed with business logic. Extract into a dedicated report generation/saving class.",
+            "before": "const results = await orchestrator.analyze(...);\nif (!fs.existsSync(outputDir)) {\n  fs.mkdirSync(outputDir, { recursive: true });\n}\nfs.writeFileSync(reportPath, JSON.stringify(results));",
+            "after": "class ReportGenerator {\n  async saveReport(results: Results, filename: string): Promise<string> {\n    this.ensureOutputDirectory();\n    const reportPath = path.join(this.outputDir, filename);\n    fs.writeFileSync(reportPath, JSON.stringify(results, null, 2));\n    return reportPath;\n  }\n}",
+            "benefits": "Separates concerns between business logic and I/O operations. Makes code more testable."
+          },
+          {
+            "type": "simplify",
+            "location": "main() - console.error calls for help messages",
+            "impact": "medium",
+            "description": "Multiple similar console.error calls for help/usage messages are repeated.",
+            "before": "if (!sourceDir) {\n  console.error('Error: --source-dir is required');\n  console.error('Usage: analyze-code --source-dir <path>');\n  process.exit(1);\n}",
+            "after": "const exitWithError = (message: string): never => {\n  logger.error(message);\n  printUsage();\n  process.exit(1);\n};",
+            "benefits": "Reduces code duplication. Centralizes error messages making them easier to maintain."
+          }
+        ],
+        "summary": "7 refactoring opportunities identified with focus on separation of concerns. Priority: (1) Extract validation logic into separate functions, (2) Create a ReportGenerator class for file I/O, (3) Centralize error handling with handleError function, (4) Standardize on logger utility instead of mixed console/logger usage. These changes will significantly improve testability and maintainability."
+      }
+    },
+    {
+      "file": "src/config/mcp.config.ts",
+      "codeQuality": {
+        "file": "src/config/mcp.config.ts",
+        "issues": [
+          {
+            "line": 17,
+            "severity": "critical",
+            "category": "security",
+            "description": "Fallback to empty string for GITHUB_TOKEN: Missing environment variable falls back to empty string instead of failing fast. This could silently allow operations with invalid authentication.",
+            "suggestion": "Remove the fallback or throw an error if GITHUB_TOKEN is not defined. Implement fail-fast behavior with meaningful error message."
+          },
+          {
+            "line": 17,
+            "severity": "high",
+            "category": "best-practice",
+            "description": "Environment variable GITHUB_TOKEN is used directly without validation. No checks confirm the token is in correct format or non-empty.",
+            "suggestion": "Add validation for token format and presence before using it in configuration"
+          },
+          {
+            "line": 15,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Hardcoded package names and versions using -y flag with npx: Using '-y' flag bypasses confirmation prompts. The '@eslint/mcp@latest' version specifier may cause non-deterministic installations.",
+            "suggestion": "Pin specific versions instead of '@latest'. Example: '@eslint/mcp@2.0.0' or document why each version is chosen."
+          },
+          {
+            "line": 10,
+            "severity": "info",
+            "category": "best-practice",
+            "description": "No type safety for mcpServersConfig object: The exported object lacks TypeScript interfaces defining the expected structure.",
+            "suggestion": "Define TypeScript interface: `interface MCPServerConfig { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; }`"
+          }
+        ],
+        "overallScore": 62,
+        "summary": "Critical security issue with unchecked environment variable fallback and high-priority issue with missing token validation. Configuration lacks type safety and would benefit from input validation, consistent documentation, and explicit error handling. Recommend immediate fixes to GITHUB_TOKEN handling and adding validation logic before production use."
+      },
+      "testCoverage": {
+        "file": "src/config/mcp.config.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "Configuration object export - structure validation",
+            "priority": "critical",
+            "reasoning": "MCP server configurations must follow strict protocol specifications. Invalid structure causes runtime failures in agent execution.",
+            "suggestedTest": "Validate that config exports mcpServersConfig object with proper structure for GitHub and ESLint servers"
+          },
+          {
+            "type": "edge-case",
+            "location": "GITHUB_TOKEN environment variable loading",
+            "priority": "critical",
+            "reasoning": "GitHub MCP server requires authentication token. Missing or invalid token prevents API access and agent functionality.",
+            "suggestedTest": "Test that GITHUB_TOKEN is properly loaded from environment variables"
+          },
+          {
+            "type": "edge-case",
+            "location": "Missing GITHUB_TOKEN handling",
+            "priority": "critical",
+            "reasoning": "Configuration should handle missing GITHUB_TOKEN gracefully - either use default or throw meaningful error.",
+            "suggestedTest": "Delete GITHUB_TOKEN env var and verify error is thrown or handled appropriately"
+          },
+          {
+            "type": "function",
+            "location": "GitHub MCP server configuration - command and args",
+            "priority": "high",
+            "reasoning": "Command invocation format must match MCP protocol specification for GitHub server startup.",
+            "suggestedTest": "Verify GitHub MCP config has command='npx' and correct package name in args"
+          },
+          {
+            "type": "function",
+            "location": "ESLint MCP server configuration - command and args",
+            "priority": "high",
+            "reasoning": "ESLint server must have proper command and arguments for initialization.",
+            "suggestedTest": "Verify ESLint MCP config has command='npx' and correct package name in args"
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "No test coverage detected. The mcp.config.ts file is a critical configuration file with zero test coverage. 10 high and critical priority gaps identified, including configuration structure validation, GITHUB_TOKEN environment variable loading, missing token handling, and MCP protocol compliance for GitHub and ESLint servers. All identified gaps are critical to agent functionality - misconfigured MCP servers will cause agent SDK initialization failures."
+      },
+      "refactorings": {
+        "file": "src/config/mcp.config.ts",
+        "suggestions": [
+          {
+            "type": "pattern-improvement",
+            "location": "Configuration object definition (entire file)",
+            "impact": "high",
+            "description": "Create type-safe configuration interfaces to replace plain object configuration.",
+            "before": "const mcpServersConfig = {\n  github: {\n    command: 'npx',\n    args: ['@modelcontextprotocol/server-github'],\n    env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN || '' }\n  }\n};",
+            "after": "interface McpServerConfig {\n  command: string;\n  args: string[];\n  env?: Record<string, string>;\n}\n\nconst mcpServersConfig: Record<string, McpServerConfig> = {\n  github: { ... }\n};",
+            "benefits": "Type safety at compile time, IDE autocomplete support, clearer API contracts, easier to extend"
+          },
+          {
+            "type": "extract-function",
+            "location": "Environment variable handling",
+            "impact": "high",
+            "description": "Extract environment variable loading into dedicated functions with validation.",
+            "before": "env: {\n  GITHUB_TOKEN: process.env.GITHUB_TOKEN || ''\n}",
+            "after": "function loadGithubToken(): string {\n  const token = process.env.GITHUB_TOKEN;\n  if (!token) {\n    throw new Error('GITHUB_TOKEN environment variable is required for GitHub MCP server');\n  }\n  return token;\n}",
+            "benefits": "Centralized environment variable handling, enables logging/validation, explicit error messages for missing variables"
+          },
+          {
+            "type": "simplify",
+            "location": "Hardcoded package names",
+            "impact": "medium",
+            "description": "Extract hardcoded package names into constants.",
+            "before": "args: ['@modelcontextprotocol/server-github']\nargs: ['@eslint/mcp@latest']",
+            "after": "const MCP_PACKAGES = {\n  GITHUB: '@modelcontextprotocol/server-github',\n  ESLINT: '@eslint/mcp@2.0.0' // pinned version\n} as const;",
+            "benefits": "Single source of truth for package names, easier to update versions, enables configuration management"
+          },
+          {
+            "type": "extract-function",
+            "location": "Configuration validation",
+            "impact": "high",
+            "description": "Create validation function to ensure configuration is complete and valid before use.",
+            "before": "export const mcpServersConfig = { ... };",
+            "after": "function validateMcpServerConfig(config: McpServerConfig, serverName: string): void {\n  if (!config.command) throw new Error(`Server '${serverName}': command is required`);\n  if (!Array.isArray(config.args)) throw new Error(`Server '${serverName}': args must be array`);\n}\n\nvalidateConfiguration(mcpServersConfig);",
+            "benefits": "Early error detection at startup, prevents silent failures, provides clear error messages"
+          }
+        ],
+        "summary": "7 refactoring opportunities identified with focus on type safety, validation, and maintainability. Priority: (1) Add TypeScript interfaces for type safety, (2) Extract environment variable handling with error logging, (3) Extract hardcoded values into constants, (4) Implement validation layer. These changes will prevent runtime errors and improve testability."
+      }
+    }
+  ],
+  "summary": {
+    "totalFiles": 3,
+    "overallScore": 69,
+    "criticalIssues": 2,
+    "highPriorityTests": 15,
+    "refactoringOpportunities": 24
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "Security",
+      "description": "GITHUB_TOKEN environment variable falls back to empty string instead of failing fast. This silent failure could allow invalid authentication. Implement fail-fast behavior with proper error handling.",
+      "files": [
+        "src/config/mcp.config.ts"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Type Safety",
+      "description": "Direct type assertion 'as Record<string, unknown>' bypasses TypeScript type checking in orchestrator.ts. This can cause runtime errors if schema structure doesn't match API expectations. Remove assertions and ensure proper typing.",
+      "files": [
+        "src/orchestrator.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Resource Management",
+      "description": "For-await loop in orchestrator.reviewPullRequest method returns within loop body without guaranteed cleanup. If exceptions occur, resources may not be properly released. Implement try-finally blocks for cleanup.",
+      "files": [
+        "src/orchestrator.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Test Coverage",
+      "description": "MCP configuration file has 0% test coverage. Must add critical tests for configuration structure validation, GITHUB_TOKEN loading, and MCP protocol compliance. All server configurations are untested.",
+      "files": [
+        "src/config/mcp.config.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Test Coverage",
+      "description": "Main CLI entry point has only 15% test coverage. Missing critical tests for argument validation, environment variable checking, file I/O error handling, and exit code verification.",
+      "files": [
+        "src/main.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Code Quality",
+      "description": "Report file generation code violates DRY principle with three nearly identical blocks for MD, HTML, and JSON output. Extract file writing logic into reusable helper function.",
+      "files": [
+        "src/main.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Maintainability",
+      "description": "Magic strings ('claude-sonnet-4-5-20250929', 'Task') and magic numbers (25, 2) are scattered throughout code without centralization. Create constants file for configuration values.",
+      "files": [
+        "src/orchestrator.ts",
+        "src/main.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Testability",
+      "description": "Large reviewPullRequest method (100+ lines) with complex control flow reduces testability. Extract into smaller single-responsibility functions for easier unit testing.",
+      "files": [
+        "src/orchestrator.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Error Handling",
+      "description": "Generic error handling converts errors to strings without preserving stack traces. Implement structured error logging and custom error classes for better debugging.",
+      "files": [
+        "src/orchestrator.ts",
+        "src/main.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Configuration",
+      "description": "MCP configuration lacks type safety and validation. Add TypeScript interfaces and runtime validation to catch configuration errors at startup rather than runtime.",
+      "files": [
+        "src/config/mcp.config.ts"
+      ]
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-11-23T18:30:00Z",
+    "duration": 180000,
+    "agentVersions": {
+      "code-quality-analyzer": "1.0.0",
+      "test-coverage-analyzer": "1.0.0",
+      "refactoring-suggester": "1.0.0"
+    }
+  }
+}
